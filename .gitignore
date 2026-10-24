@@ -1,0 +1,2 @@
+# Local settings for make (GCLOUD_ACCOUNT). See .env.example.
+.env

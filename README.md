@@ -1,2 +1,68 @@
 # runner-images
-a2ito の self-hosted runner（Cloud Run）のコンテナイメージ
+
+a2ito の GitHub Actions self-hosted runner（Cloud Run ジョブ）のコンテナイメージ。
+ジョブ 1 つにつきコンテナ 1 つを起動し、`run.sh --jitconfig` でそのジョブを実行して終わる。
+
+runner を起動する dispatcher や webhook、ON / OFF の切り替えは
+[a2ito/github-management](https://github.com/a2ito/github-management) の `runner/` にある。
+
+| イメージ | ディレクトリ | 使うジョブ（`runs-on`） |
+| --- | --- | --- |
+| `runner` | `images/runner` | `gcp`（`gh-runner-runner`）、`gcp-large`（`gh-runner-runner-large`） |
+| `runner-android` | `images/runner-android` | `gcp-android`（`gh-runner-runner-android`） |
+
+## 分担
+
+| | このリポジトリ | github-management | cloud-management |
+| --- | --- | --- | --- |
+| 持つもの | runner のイメージ | dispatcher のコードとイメージ、webhook | Cloud Run のサービスとジョブ、Artifact Registry、サービスアカウントと IAM（`modules/gcp/github_runner_dispatcher`） |
+| イメージ | `make build` / `make deploy` で差し替える | dispatcher を `make runner-build` / `make runner-deploy` で差し替える | 仮のイメージで作り、image は `ignore_changes` |
+
+## ビルドとデプロイ
+
+gcloud を動かすアカウント（`GCLOUD_ACCOUNT`）は環境変数か `.env` で渡す。このリポジトリは
+public なので、既定値を持たせていない。
+
+```sh
+cp .env.example .env   # GCLOUD_ACCOUNT を書く（または export する）
+make build             # Cloud Build で 2 つのイメージを作る（タグはコミット）
+make deploy            # 全ジョブ（JOBS / ANDROID_JOBS）のイメージを差し替える
+```
+
+コミットしていない変更があると、タグに `-dirty` が付く。`runner-android` は同じタグの
+`runner` を土台にするので、`make build` は必ず `runner` から作る。
+
+ビルドは `cloudbuild.yaml` を使う。`--service-account` を指定したビルドは
+ログの設定が必須で、`gcloud builds submit --tag` にはそのフラグが無いため。
+ソースは cloud-management が作ったバケット（`gs://a2ito-github-runner-gh-runner-source`）に置く。
+
+PR では GitHub Actions（`.github/workflows/build.yml`）が 2 つのイメージをビルドだけして確かめる。
+push はしない。
+
+## 気をつけること
+
+- **runner は 1 回きり。** JIT 設定は 1 回しか使えないため、ジョブの再試行は 0 回にしてある。
+  runner ジョブを手で起動しても `JIT_CONFIG` が空なので即座に失敗する（`entrypoint.sh`）。
+- **runner イメージには `node` と `gh` を足してある。** 公式の runner イメージには
+  どちらも入っていないが、GitHub-hosted には入っていて、`setup-terraform` のラッパーや
+  `gh pr merge` を使う workflow が前提にしている。
+- **runner イメージは公式イメージではなく、runner の tarball から作っている。** docker・buildx・
+  k8s hooks・sudo など、使わない部品を持たないため（1.31GB → 473MB）。速さとメモリのためでは
+  ない。起動時間はイメージの大きさに依らず（数 MB のイメージでも約 1.5 分）、イメージの大きさは
+  使えるメモリに影響しない（Cloud Run が数えるのは書き込んだファイル）。
+- **Node.js は node24 だけ。** node20 の action も `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` で
+  node24 で動かす。`externals/node20` は node24 へのリンクにしてある。runner 自身の
+  `hashFiles()` などはこの変数と関係なく `externals/node20` を名前で呼ぶため、消すと壊れる。
+- **runner と gh を上げるときは、Dockerfile の版と SHA-256 を一緒に直す。** ハッシュは
+  リリースページにある（runner はリリースノート、gh は `gh_<版>_checksums.txt`）。
+- **Android 用のイメージ（`images/runner-android`）は、runner イメージに Android SDK と Flutter を足したもの。**
+  ジョブが落とすファイルはメモリに数えられるが、イメージの中身は数えられないため、焼き込めるものは
+  焼き込む。flutter アプリが `FLUTTER_VERSION` を上げたら、Dockerfile の `FLUTTER_VERSION` と
+  ハッシュも上げる（上げないと、flutter-action が毎回その版を落とすので遅くなり、メモリも食う）。
+- **ツールを足すときは、焼き込むかジョブで落とすかを考える。** 焼き込んだものは起動時間にも
+  メモリにも効かない。ジョブが落としたものは、毎回その分の時間とメモリを使う。
+- **大きさを足したら Makefile にジョブ名を足す。** `JOBS`（runner イメージ）か
+  `ANDROID_JOBS`（Android 用）のどちらか。どちらにも無いジョブは仮のイメージのまま残る。
+  逆に、cloud-management でジョブを作る前に足すと、`make deploy` がそのジョブで落ちる。
+- **runner のコンテナでは docker を使えない。** コンテナを使うジョブ（`container:` や
+  `services:`）はこの runner では動かない。

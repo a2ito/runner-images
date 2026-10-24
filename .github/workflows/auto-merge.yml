@@ -1,0 +1,45 @@
+name: Auto merge
+
+# 自分が出した PR に自動マージを予約する。
+# 実際のマージは GitHub が required status checks の成功を待って行う。
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+# 自動マージは GitHub App（a2ito-auto-merge）のトークンで予約するので、GITHUB_TOKEN に書き込み権限は要らない
+permissions:
+  contents: read
+
+jobs:
+  enable-auto-merge:
+    name: enable auto merge
+    # fork からの PR と、リポジトリ所有者以外が出した PR は対象にしない。
+    # 外部の変更が人の目を通さず本番へ出るのを防ぐ。
+    #
+    # 所有者はログイン名の一覧で見る。リポジトリは a2ito 組織の持ち物で、
+    # PR を出す個人アカウント (a2-ito) とログイン名が一致しないため、
+    # repository_owner との比較だと常に外れる。author_association は
+    # 組織のメンバー公開設定によって MEMBER にならないことがあり、当てにできない。
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(fromJSON('["a2-ito"]'), github.event.pull_request.user.login)
+    runs-on: ubuntu-latest
+    steps:
+      # GITHUB_TOKEN で予約すると、マージが github-actions の操作になる。GitHub は GITHUB_TOKEN が
+      # 起こした push でワークフローを起動しないため、main への push で動く CI が
+      # 走らない。head ブランチも消えずに残る。App として予約すれば、マージは App の操作になる。
+      # App の ID と鍵は github-management の auto_merge.tf が配る
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          # 配られているのは App ID（client-id ではない）。app-id は非推奨だが v3 でも使える
+          app-id: ${{ vars.AUTO_MERGE_APP_ID }}
+          private-key: ${{ secrets.AUTO_MERGE_APP_PRIVATE_KEY }}
+
+      - name: Enable auto merge
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
