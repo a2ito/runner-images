@@ -1,7 +1,8 @@
 # runner-images
 
-a2ito の GitHub Actions self-hosted runner（Cloud Run ジョブ）のコンテナイメージ。
+a2ito の GitHub Actions self-hosted runner（Cloud Run ジョブと自宅PCの WSL）のコンテナイメージ。
 ジョブ 1 つにつきコンテナ 1 つを起動し、`run.sh --jitconfig` でそのジョブを実行して終わる。
+自宅PCで動かすための常駐スクリプトは [`wsl/`](wsl/README.md) にある。
 
 runner を起動する dispatcher や webhook、ON / OFF の切り替えは
 [a2ito/github-management](https://github.com/a2ito/github-management) の `runner/` にある。
@@ -9,7 +10,7 @@ runner を起動する dispatcher や webhook、ON / OFF の切り替えは
 | イメージ | ディレクトリ | 使うジョブ（`runs-on`） |
 | --- | --- | --- |
 | `runner` | `images/runner` | `gcp`（`gh-runner-runner`）、`gcp-large`（`gh-runner-runner-large`） |
-| `runner-android` | `images/runner-android` | `gcp-android`（`gh-runner-runner-android`） |
+| `runner-android` | `images/runner-android` | `gcp-android`（`gh-runner-runner-android`）、`wsl`（自宅PC） |
 
 ## 含まれるソフトウェア
 
@@ -46,14 +47,18 @@ JDK と Gradle は入れていない（actions/setup-java と Gradle wrapper が
 
 | | このリポジトリ | github-management | cloud-management |
 | --- | --- | --- | --- |
-| 持つもの | runner のイメージ（ghcr.io） | dispatcher のコードとイメージ、webhook | Cloud Run のサービスとジョブ、サービスアカウントと IAM（`modules/gcp/github_runner_dispatcher`） |
-| イメージ | main への merge で push し、`make deploy` で差し替える | dispatcher を `make runner-build` / `make runner-deploy` で差し替える | 仮のイメージで作り、image は `ignore_changes` |
+| 持つもの | runner のイメージ（ghcr.io）、自宅PCの常駐スクリプト（`wsl/`） | dispatcher のコードとイメージ、webhook | Cloud Run のサービスとジョブ、サービスアカウントと IAM（`modules/gcp/github_runner_dispatcher`） |
+| イメージ | main への merge で push する。Cloud Run は `make deploy` で差し替え、自宅PCは `:main` を自動で取り込む | dispatcher を `make runner-build` / `make runner-deploy` で差し替える | 仮のイメージで作り、image は `ignore_changes` |
 
 ## ビルドとデプロイ
 
 イメージは GitHub Actions（`.github/workflows/build.yml`）が作る。PR ではビルドだけして
 Dockerfile を確かめ、main への merge で `ghcr.io/a2ito/runner-images/{runner,runner-android}:<コミットの SHA>`
-に push する。`runner-android` は同じジョブで作った `runner` を土台にする。Cloud Build は使わない。
+と `:main` に push する。`runner-android` は同じジョブで作った `runner` を土台にする。Cloud Build は使わない。
+push の前に、`runner-android` の中で runner・node・gh・aws などが起動できるかを確かめる（smoke test）。
+
+自宅PC（`wsl/`）は、ジョブのたびに `runner-android:main` を pull するので、merge すれば次のジョブから
+新しいイメージで動く。下の `make deploy` は Cloud Run だけの話。
 
 Cloud Run は public な ghcr.io のイメージを直接引ける（Artifact Registry の remote repository は要らない）。
 パッケージは **public にしておく**。private のままだと、ジョブの起動時にイメージを引けずに落ちる。

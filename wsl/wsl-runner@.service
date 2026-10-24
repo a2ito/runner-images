@@ -1,0 +1,28 @@
+# One runner slot on the home PC (WSL). Enable one instance per runner wanted:
+#   systemctl enable --now wsl-runner@1 wsl-runner@2
+# See wsl/README.md.
+#
+# run-once.sh runs one job and exits; Restart=always starts the next one, which
+# is also when a new image gets pulled.
+[Unit]
+Description=GitHub Actions runner in docker (slot %i)
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+# Restart=always would otherwise give up after 5 failed starts in 10 seconds
+# (e.g. while GitHub or ghcr.io is down). RestartSec below paces the retries.
+StartLimitIntervalSec=0
+
+[Service]
+EnvironmentFile=/etc/wsl-runner/config
+ExecStart=/usr/local/lib/wsl-runner/run-once.sh %i
+Restart=always
+# Between jobs too, not only after failures: a short pause, then the next run.
+# Long enough that a broken key or an outage does not hammer the API.
+RestartSec=10
+# A job may be mid-step when the service stops; give `docker stop` its default
+# 10 seconds and the cleanup a little more.
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target
