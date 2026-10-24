@@ -1,25 +1,28 @@
 # wsl
 
-自宅PC（WSL の Debian）で runner を docker で動かすための常駐スクリプト。
+自宅PC（WSL の Debian）で runner を docker で動かすためのスクリプトと systemd ユニット。
 cloud-scope の「self-hosted runner」で「自宅PC」を選んだときに、`wsl` ラベルのジョブを拾う。
 
-Cloud Run 版と同じく、ジョブ 1 つにつきコンテナ 1 つを使い捨てる。1 回ごとに次を繰り返す。
+Cloud Run 版と同じく、ジョブ 1 つにつきコンテナ 1 つを使い捨てる。`run-once.sh` は次の 1 回分だけを
+行って終わり、繰り返しは systemd（`Restart=always`）に任せる。スクリプトにループは無い。
 
 1. `runner-android:main` を pull する（新しいイメージがあればここで入れ替わる）
 2. GitHub App で org に JIT runner を登録する
-3. `docker run --rm` でジョブを 1 つ実行する。終わるとコンテナも runner も消える
+3. `docker run --rm` でジョブを 1 つ実行する。終わるとコンテナも runner も消え、スクリプトも終わる
+4. systemd が 10 秒後に起動し直す（1 に戻る）
 
 | ファイル | 置き場所 |
 | --- | --- |
-| `runner-loop.sh` | `/usr/local/lib/wsl-runner/runner-loop.sh` |
+| `run-once.sh` | `/usr/local/lib/wsl-runner/run-once.sh` |
 | `wsl-runner@.service` | `/etc/systemd/system/wsl-runner@.service` |
 | `config.example` | `/etc/wsl-runner/config` に書き換えて置く |
 
 ## 自動更新の仕組み
 
 main への merge で build.yml が `ghcr.io/a2ito/runner-images/runner-android:main` を押し上げる。
-`runner-loop.sh` はコンテナを起動する前に毎回 pull するので、次のジョブから新しいイメージで動く。
-自宅PCは外から届かないので、こちらから取りに行く形にしている（webhook も GCP の権限も要らない）。
+`run-once.sh` は起動するたびに最初に pull するので、次に起動した回から新しいイメージで動く。
+時間を決めた定期チェックはしない。自宅PCは外から届かないので、起動のついでにこちらから取りに行く
+（webhook も GCP の権限も要らない）。
 
 ジョブを待っている runner は、起動したときのイメージのまま。入れ替わるのは、その runner が
 ジョブを 1 つ終えた次の回から。
@@ -58,7 +61,7 @@ Flutter を足したもの。
 
    ```sh
    sudo install -m 600 wsl/config.example /etc/wsl-runner/config   # APP_ID を書く
-   sudo install -D -m 755 wsl/runner-loop.sh /usr/local/lib/wsl-runner/runner-loop.sh
+   sudo install -D -m 755 wsl/run-once.sh /usr/local/lib/wsl-runner/run-once.sh
    sudo install -m 644 wsl/wsl-runner@.service /etc/systemd/system/
    sudo systemctl daemon-reload
    sudo systemctl enable --now wsl-runner@1 wsl-runner@2
@@ -70,7 +73,7 @@ Flutter を足したもの。
    journalctl -u 'wsl-runner@*' -f
    ```
 
-`runner-loop.sh` や `wsl-runner@.service` を直したときは、手順 3 の `install` をやり直して
+`run-once.sh` や `wsl-runner@.service` を直したときは、手順 3 の `install` をやり直して
 `sudo systemctl restart 'wsl-runner@*'`。イメージの更新では何もしなくてよい。
 
 ## 気をつけること

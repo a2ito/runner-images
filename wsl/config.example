@@ -13,4 +13,3 @@ PRIVATE_KEY_FILE=/etc/wsl-runner/app.pem
 #LABELS=wsl
 # Runners are named <prefix>-<slot>-<timestamp>.
 #NAME_PREFIX=winmini-wsl
-#RETRY_SECONDS=60
