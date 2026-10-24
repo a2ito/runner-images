@@ -12,6 +12,11 @@ Requires=docker.service
 # Restart=always would otherwise give up after 5 failed starts in 10 seconds
 # (e.g. while GitHub or ghcr.io is down). RestartSec below paces the retries.
 StartLimitIntervalSec=0
+# Drain: with this file present, the next start -- including the automatic one
+# after a job -- is skipped and the unit stays inactive, so a running job
+# finishes but no new one is picked up. Checked only at start, never mid-job.
+# Remove the file and `systemctl start` the slots to resume (wsl/README.md).
+ConditionPathExists=!/etc/wsl-runner/drain
 
 [Service]
 EnvironmentFile=/etc/wsl-runner/config

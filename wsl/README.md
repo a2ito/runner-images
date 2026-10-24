@@ -74,7 +74,31 @@ Flutter を足したもの。
    ```
 
 `run-once.sh` や `wsl-runner@.service` を直したときは、手順 3 の `install` をやり直して
-`sudo systemctl restart 'wsl-runner@*'`。イメージの更新では何もしなくてよい。
+`sudo systemctl daemon-reload`。次の回から新しいものが使われる（ジョブ中の slot はそのまま続く）。
+すぐに切り替えたいときは `sudo systemctl restart wsl-runner@1 wsl-runner@2` だが、ジョブの途中なら
+そのジョブは落ちる。イメージの更新では何もしなくてよい。
+
+## ジョブを落とさずに止める（drain）
+
+WSL の再起動や PC の停止の前に使う。`/etc/wsl-runner/drain` があると、各 slot は今のジョブを
+最後までやり、次のジョブを拾わずに止まる（`wsl-runner@.service` の `ConditionPathExists`）。
+
+```sh
+sudo touch /etc/wsl-runner/drain
+systemctl is-active wsl-runner@1 wsl-runner@2   # 両方 inactive になれば止まった
+```
+
+ジョブを待っているだけの slot は、ジョブを拾うまで止まらない（待機中のコンテナはジョブが来ない
+限り終わらないため）。全部が inactive になるのを待たずに止めたいときは、`Runner.Worker` が
+動いていない（`ps aux | grep '[R]unner.Worker'` が空）ことを確かめてから `sudo systemctl stop` する。
+
+再開するときは、ファイルを消して起動する。**ファイルを残したまま WSL を再起動すると、起動時にも
+止まったままになる。**
+
+```sh
+sudo rm /etc/wsl-runner/drain
+sudo systemctl start wsl-runner@1 wsl-runner@2
+```
 
 ## 気をつけること
 
@@ -83,6 +107,9 @@ Flutter を足したもの。
 - **コンテナの中では docker を使えない。** Cloud Run 版と同じ。今までの runner にあった `docker`
   ラベルは付けない。
 - **2 台の並列は slot の数で決まる。** 増やすなら `wsl-runner@3` を enable する。
+- **WSL が使えるメモリは、既定では PC の半分。** 16GB の PC では 7.6GiB で、Build Android（Gradle に
+  `-Xmx8G`）が 2 本重なると足りない。Windows 側の `%UserProfile%\.wslconfig` で増やす
+  （例: `[wsl2]` `memory=12GB` `swap=8GB`、反映は `wsl --shutdown`）。slot を増やす前に `free -h` で見る。
 - **止めると、登録だけされた runner を消す。** ジョブの途中で止めたときは、そのジョブは失敗する。
 - **runner の名前は毎回変わる**（`winmini-wsl-<slot>-<日時>`）。cloud-scope の使用状況は runner の
   グループで種類を分けているので、名前が変わっても数えられる。
