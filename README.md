@@ -20,7 +20,7 @@ runner を起動する dispatcher や webhook、ON / OFF の切り替えは
 
 | ソフトウェア | 版 | 備考 |
 | --- | --- | --- |
-| ベース | `mcr.microsoft.com/dotnet/runtime-deps:10.0-noble` | Ubuntu 24.04。.NET が使うライブラリ（ICU、OpenSSL）と ca-certificates を含む |
+| ベース | `mcr.microsoft.com/dotnet/runtime-deps:10.0-noble` | Ubuntu 24.04。.NET が使うライブラリ（ICU、OpenSSL）と ca-certificates を含む。digest で固定し、Renovate が PR で上げる |
 | GitHub Actions runner | 2.337.0（`RUNNER_VERSION`） | `/home/runner`。ユーザーは `runner`（uid 1001） |
 | Node.js | runner 同梱の node24 | `/usr/local/bin/node` にリンク。`externals/node20` は node24 へのリンク |
 | GitHub CLI（`gh`） | 2.102.0（`GH_VERSION`） | `/usr/local/bin/gh` |
