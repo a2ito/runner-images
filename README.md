@@ -11,6 +11,36 @@ runner を起動する dispatcher や webhook、ON / OFF の切り替えは
 | `runner` | `images/runner` | `gcp`（`gh-runner-runner`）、`gcp-large`（`gh-runner-runner-large`） |
 | `runner-android` | `images/runner-android` | `gcp-android`（`gh-runner-runner-android`） |
 
+## 含まれるソフトウェア
+
+版の正は Dockerfile。版を上げたら、この表も一緒に直す。
+
+### runner
+
+| ソフトウェア | 版 | 備考 |
+| --- | --- | --- |
+| ベース | `mcr.microsoft.com/dotnet/runtime-deps:10.0-noble` | Ubuntu 24.04。.NET が使うライブラリ（ICU、OpenSSL）と ca-certificates を含む |
+| GitHub Actions runner | 2.337.0（`RUNNER_VERSION`） | `/home/runner`。ユーザーは `runner`（uid 1001） |
+| Node.js | runner 同梱の node24 | `/usr/local/bin/node` にリンク。`externals/node20` は node24 へのリンク |
+| GitHub CLI（`gh`） | 2.102.0（`GH_VERSION`） | `/usr/local/bin/gh` |
+| git、curl、jq、unzip | Ubuntu 24.04 の apt | |
+
+### runner-android
+
+runner イメージの中身に、次のものを足している。
+
+| ソフトウェア | 版 | 備考 |
+| --- | --- | --- |
+| Android SDK command-line tools | build 16111833（`CMDLINE_TOOLS_BUILD`） | `ANDROID_HOME` / `ANDROID_SDK_ROOT` は `/opt/android-sdk` |
+| Android SDK Platform-Tools | 入れた時点の最新 | |
+| Android SDK Platform | android-36 | |
+| Android SDK Build-Tools | 35.0.0、36.0.0 | |
+| Android NDK | 28.2.13676358 | |
+| Flutter | 3.44.8 stable（`FLUTTER_VERSION`） | `/home/runner/_work/_tool/flutter/stable-<版>-x64/flutter`（subosito/flutter-action が探す場所）。Android 向けのみ precache |
+| clang、xz-utils | Ubuntu 24.04 の apt | |
+
+JDK と Gradle は入れていない（actions/setup-java と Gradle wrapper がジョブごとに落とす）。
+
 ## 分担
 
 | | このリポジトリ | github-management | cloud-management |
