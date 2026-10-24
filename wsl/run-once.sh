@@ -74,9 +74,17 @@ installation_token() {
   github POST "/app/installations/${installation}/access_tokens" "$jwt" | jq -er .token
 }
 
+# Checked before the pull: the first pull of runner-android takes minutes, and a
+# missing key would otherwise only show up after it, as an openssl error.
+if [ ! -r "$PRIVATE_KEY_FILE" ]; then
+  log "cannot read the App private key ${PRIVATE_KEY_FILE} (see wsl/README.md)"
+  exit 1
+fi
+
 # A container left over from an unclean stop would make `docker run --name` fail.
 docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
+log "pulling ${IMAGE}"
 if ! docker pull -q "$IMAGE" >/dev/null; then
   # Keep serving jobs with the image already here; only give up if there is none.
   docker image inspect "$IMAGE" >/dev/null 2>&1 || { log "cannot pull ${IMAGE}"; exit 1; }
