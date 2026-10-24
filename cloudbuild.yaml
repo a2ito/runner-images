@@ -1,0 +1,20 @@
+# Build config shared by all images (make build).
+#
+# This file exists for options.logging alone. Cloud Build refuses a build that
+# runs as a user-specified service account unless logging is set, and
+# `gcloud builds submit --tag` has no flag for it -- only a config file does.
+#
+# _RUNNER_IMAGE is the base of images/runner-android (its FROM). The runner
+# image ignores it; docker only warns that the build-arg was not consumed.
+#
+# The timeout is for images/runner-android, which downloads the Android SDK and
+# Flutter (several GB) -- Cloud Build's default of 10 minutes is not enough.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "--build-arg", "RUNNER_IMAGE=${_RUNNER_IMAGE}", "-t", "${_IMAGE}", "."]
+images: ["${_IMAGE}"]
+substitutions:
+  _RUNNER_IMAGE: ""
+timeout: 3600s
+options:
+  logging: CLOUD_LOGGING_ONLY
