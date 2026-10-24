@@ -58,6 +58,7 @@ jobs:
           set -eux;
           ./bin/Runner.Listener --version;
           node --version; gh --version; aws --version; git --version; clang --version;
+          python3 --version; make --version; g++ --version;
           test -x "$ANDROID_HOME/platform-tools/adb";
           test -x _work/_tool/flutter/stable-*-x64/flutter/bin/flutter'
 

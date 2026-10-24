@@ -26,6 +26,7 @@ runner を起動する dispatcher や webhook、ON / OFF の切り替えは
 | GitHub CLI（`gh`） | 2.102.0（`GH_VERSION`） | `/usr/local/bin/gh` |
 | AWS CLI v2 | 2.38.5（`AWS_CLI_VERSION`） | `/usr/local/aws-cli`。`/usr/local/bin/aws` にリンク |
 | git、curl、jq、unzip | Ubuntu 24.04 の apt | |
+| python3、make、g++ | Ubuntu 24.04 の apt | node-gyp がネイティブの npm パッケージ（better-sqlite3 など）をビルドするため |
 
 ### runner-android
 
