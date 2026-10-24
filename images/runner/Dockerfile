@@ -19,7 +19,14 @@
 #
 # The defaults are for Cloud Run (x86_64). To build for arm64 locally, override
 # RUNNER_ARCH=arm64, GH_ARCH=arm64, AWS_CLI_ARCH=aarch64 and the hashes.
-ARG BASE=mcr.microsoft.com/dotnet/runtime-deps:10.0-noble
+#
+# The base is pinned by digest for the same reason: Microsoft rebuilds
+# 10.0-noble in place (OS patches), so the tag alone would change the image on
+# any rebuild. Renovate bumps the digest in a PR of its own. The digest is the
+# multi-arch index, so the arm64 override above still works. The tag is the
+# .NET version, which the runner does not use -- it ships its own .NET; the
+# base only supplies the libraries (ICU, OpenSSL) and Ubuntu 24.04.
+ARG BASE=mcr.microsoft.com/dotnet/runtime-deps:10.0-noble@sha256:1c20bc9ebda297198be069d82b6c5d1716faeeec8b8dca53ef963f9c92d3e2e3
 
 FROM ${BASE} AS fetch
 ARG RUNNER_VERSION=2.337.0
