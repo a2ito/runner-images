@@ -17,7 +17,7 @@
 #
 # The defaults are for Cloud Run (x86_64). To build for arm64 locally, override
 # RUNNER_ARCH=arm64, GH_ARCH=arm64 and both hashes.
-ARG BASE=mcr.microsoft.com/dotnet/runtime-deps:8.0-noble
+ARG BASE=mcr.microsoft.com/dotnet/runtime-deps:10.0-noble
 
 FROM ${BASE} AS fetch
 ARG RUNNER_VERSION=2.337.0
