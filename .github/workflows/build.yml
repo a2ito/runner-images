@@ -1,7 +1,7 @@
 name: build
 
-# Dockerfile が壊れていないかを PR ごとに確かめる。ビルドするだけで push はしない
-# （イメージは make build で Cloud Build から Artifact Registry に入れる）。
+# PR では Dockerfile が壊れていないかをビルドだけして確かめる。main では同じものを
+# ghcr.io に push する（タグはコミットの SHA）。Cloud Run ジョブへの反映は make deploy。
 #
 # public リポジトリなので GitHub-hosted で回す（分数に上限が無い）。
 # runner-android は同じジョブで作った runner の上に積むため、2 つを 1 ジョブにまとめている。
@@ -13,20 +13,47 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # main の push は途中で止めない。片方だけ push されたタグが残るため。
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
+
+env:
+  REGISTRY: ghcr.io/${{ github.repository }}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v7
 
+      # パッケージをこのリポジトリに紐付ける。紐付いていないと、パッケージの権限が
+      # リポジトリから引き継がれず、Actions から push し直せなくなる。
       - name: runner
-        run: docker build -t runner:ci images/runner
+        run: >-
+          docker build
+          --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}"
+          -t "$REGISTRY/runner:$GITHUB_SHA"
+          images/runner
 
       - name: runner-android
-        run: docker build --build-arg RUNNER_IMAGE=runner:ci -t runner-android:ci images/runner-android
+        run: >-
+          docker build
+          --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}"
+          --build-arg "RUNNER_IMAGE=$REGISTRY/runner:$GITHUB_SHA"
+          -t "$REGISTRY/runner-android:$GITHUB_SHA"
+          images/runner-android
+
+      - name: push
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$REGISTRY/runner:$GITHUB_SHA"
+          docker push "$REGISTRY/runner-android:$GITHUB_SHA"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

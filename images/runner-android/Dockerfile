@@ -1,5 +1,5 @@
 # The runner for Flutter / Android jobs: images/runner plus the Android SDK and
-# Flutter. Built on top of the runner image of the same tag (make build
+# Flutter. Built on top of the runner image of the same tag (build.yml
 # passes RUNNER_IMAGE), so the runner itself is never set up twice.
 #
 # Why bake all this into the image instead of letting each job download it:

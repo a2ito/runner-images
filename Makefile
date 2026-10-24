@@ -1,10 +1,14 @@
-# Build the runner images with Cloud Build and point the runner jobs at them.
+# Point the runner jobs at an image that GitHub Actions pushed to ghcr.io.
 #
-# The Cloud Run jobs, the image repository and the service accounts are created
-# by the cloud-management repository (modules/gcp/github_runner_dispatcher),
-# with placeholder images. These targets only build our images and swap them
-# in; Terraform there ignores the image field, so the two never fight. The
-# dispatcher service is built and deployed from github-management.
+# The images are built and pushed by .github/workflows/build.yml on every push
+# to main, tagged with the full commit SHA. Cloud Run pulls public ghcr.io
+# images directly, so no Artifact Registry repository is involved.
+#
+# The Cloud Run jobs and their service accounts are created by the
+# cloud-management repository (modules/gcp/github_runner_dispatcher), with
+# placeholder images. Terraform there ignores the image field, so this and that
+# never fight. The dispatcher service is built and deployed from
+# github-management.
 
 # Local settings -- GCLOUD_ACCOUNT at least. The file is git-ignored and
 # optional: the same variables can come from the environment instead.
@@ -12,12 +16,7 @@
 
 PROJECT ?= a2ito-github-runner
 REGION  ?= us-central1
-REPO    ?= $(REGION)-docker.pkg.dev/$(PROJECT)/gh-runner
-BUILDER ?= projects/$(PROJECT)/serviceAccounts/gh-runner-builder@$(PROJECT).iam.gserviceaccount.com
-# Created by cloud-management. Without it gcloud makes <project>_cloudbuild on
-# its own, which the builder account has no access to -- the build then fails
-# with "does not have storage.objects.get access".
-SOURCE  ?= gs://$(PROJECT)-gh-runner-source/source
+REPO    ?= ghcr.io/a2ito/runner-images
 # The account gcloud runs as. No default: this repository is public, and the
 # address is personal. Pass it from the environment or .env.
 GCLOUD_ACCOUNT ?=
@@ -28,37 +27,24 @@ GCLOUD_ACCOUNT ?=
 JOBS         ?= gh-runner-runner gh-runner-runner-large
 ANDROID_JOBS ?= gh-runner-runner-android
 
-# Tag images with the commit so a deployed image can be traced to its source.
-# A dirty tree gets a suffix: that image cannot be rebuilt from the commit.
-TAG ?= $(shell git rev-parse --short HEAD)$(shell git diff --quiet -- images cloudbuild.yaml || echo -dirty)
+# The commit whose images to deploy -- the full SHA, as build.yml tags them.
+# Defaults to the local HEAD, which has to be on main and pushed: images exist
+# only for commits that build.yml has run on.
+TAG ?= $(shell git rev-parse HEAD)
 
 GCLOUD = gcloud --project=$(PROJECT) --account=$(GCLOUD_ACCOUNT)
 
-# The builder account only has artifactregistry.writer on the one repository
-# -- the default Cloud Build account can do far more. Running as it requires a
-# logging option, which only a config file can set (cloudbuild.yaml).
-BUILD = $(GCLOUD) builds submit --config=cloudbuild.yaml \
-	--service-account=$(BUILDER) --gcs-source-staging-dir=$(SOURCE)
-
-.PHONY: help build deploy check-account
+.PHONY: help deploy check-account
 
 help:
-	@echo 'build  - build the runner images with Cloud Build (TAG=<git sha>)'
-	@echo 'deploy - point the runner jobs at TAG'
+	@echo 'deploy - point the runner jobs at the images of TAG (default: HEAD)'
 	@echo
-	@echo 'Both need GCLOUD_ACCOUNT, from the environment or .env.'
+	@echo 'Needs GCLOUD_ACCOUNT, from the environment or .env.'
 
 check-account:
 ifeq ($(strip $(GCLOUD_ACCOUNT)),)
-	$(error GCLOUD_ACCOUNT is empty -- e.g. GCLOUD_ACCOUNT=you@example.com make build)
+	$(error GCLOUD_ACCOUNT is empty -- e.g. GCLOUD_ACCOUNT=you@example.com make deploy)
 endif
-
-# images/runner-android starts FROM the runner image of the same tag, so the
-# runner image has to be pushed first.
-build: check-account
-	$(BUILD) images/runner --substitutions=_IMAGE=$(REPO)/runner:$(TAG)
-	$(BUILD) images/runner-android \
-		--substitutions=_IMAGE=$(REPO)/runner-android:$(TAG),_RUNNER_IMAGE=$(REPO)/runner:$(TAG)
 
 # Only the image changes: environment, service account and resources come from
 # Terraform in cloud-management and are left as they are.
