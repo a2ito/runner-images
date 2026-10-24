@@ -37,6 +37,23 @@ Flutter を足したもの。
 
 前提: WSL で systemd が有効（`/etc/wsl.conf` に `[boot]` `systemd=true`）、docker、curl、jq、openssl。
 
+Windows 側の `%UserProfile%\.wslconfig` も先に書く。反映は PowerShell / cmd で `wsl --shutdown`。
+
+```ini
+[wsl2]
+# 既定は PC の半分（16GB の PC で 7.6GiB）。Build Android が 2 本重なると足りない。
+memory=12GB
+swap=8GB
+# ターミナルを全部閉じると、systemd のサービスが動いていても WSL ごと止まる（WSL 3.0.3 で
+# 閉じてから約 1 分）。止まると実行中のジョブはエラーも出さずに切れ、runner も戻らない。
+vmIdleTimeout=-1
+
+[general]
+instanceIdleTimeout=-1
+```
+
+効いているかは、ターミナルを全部閉じて数分後に `wsl -l -v` が `Running` のままかで見る。
+
 1. 今の runner（`config.sh` で登録して `svc.sh` で常駐させたもの）を外す。
 
    ```sh
@@ -108,8 +125,11 @@ sudo systemctl start wsl-runner@1 wsl-runner@2
   ラベルは付けない。
 - **2 台の並列は slot の数で決まる。** 増やすなら `wsl-runner@3` を enable する。
 - **WSL が使えるメモリは、既定では PC の半分。** 16GB の PC では 7.6GiB で、Build Android（Gradle に
-  `-Xmx8G`）が 2 本重なると足りない。Windows 側の `%UserProfile%\.wslconfig` で増やす
-  （例: `[wsl2]` `memory=12GB` `swap=8GB`、反映は `wsl --shutdown`）。slot を増やす前に `free -h` で見る。
+  `-Xmx8G`）が 2 本重なると足りない。`.wslconfig` で増やす（「導入」）。slot を増やす前に `free -h` で見る。
+- **ターミナルを全部閉じると WSL が止まる。** systemd のサービスは「使われている」と数えられない。
+  `.wslconfig` の `vmIdleTimeout=-1` / `instanceIdleTimeout=-1` で防ぐ（「導入」）。Windows から
+  サインアウトしたときと、PC がスリープしたときは、それでも止まる。
+- **`wsl --shutdown` は実行中のジョブを落とす。** 先に drain する。落ちたジョブは GitHub から re-run する。
 - **止めると、登録だけされた runner を消す。** ジョブの途中で止めたときは、そのジョブは失敗する。
 - **runner の名前は毎回変わる**（`winmini-wsl-<slot>-<日時>`）。cloud-scope の使用状況は runner の
   グループで種類を分けているので、名前が変わっても数えられる。
