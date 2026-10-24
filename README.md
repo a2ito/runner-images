@@ -15,29 +15,29 @@ runner を起動する dispatcher や webhook、ON / OFF の切り替えは
 
 | | このリポジトリ | github-management | cloud-management |
 | --- | --- | --- | --- |
-| 持つもの | runner のイメージ | dispatcher のコードとイメージ、webhook | Cloud Run のサービスとジョブ、Artifact Registry、サービスアカウントと IAM（`modules/gcp/github_runner_dispatcher`） |
-| イメージ | `make build` / `make deploy` で差し替える | dispatcher を `make runner-build` / `make runner-deploy` で差し替える | 仮のイメージで作り、image は `ignore_changes` |
+| 持つもの | runner のイメージ（ghcr.io） | dispatcher のコードとイメージ、webhook | Cloud Run のサービスとジョブ、サービスアカウントと IAM（`modules/gcp/github_runner_dispatcher`） |
+| イメージ | main への merge で push し、`make deploy` で差し替える | dispatcher を `make runner-build` / `make runner-deploy` で差し替える | 仮のイメージで作り、image は `ignore_changes` |
 
 ## ビルドとデプロイ
 
-gcloud を動かすアカウント（`GCLOUD_ACCOUNT`）は環境変数か `.env` で渡す。このリポジトリは
-public なので、既定値を持たせていない。
+イメージは GitHub Actions（`.github/workflows/build.yml`）が作る。PR ではビルドだけして
+Dockerfile を確かめ、main への merge で `ghcr.io/a2ito/runner-images/{runner,runner-android}:<コミットの SHA>`
+に push する。`runner-android` は同じジョブで作った `runner` を土台にする。Cloud Build は使わない。
+
+Cloud Run は public な ghcr.io のイメージを直接引ける（Artifact Registry の remote repository は要らない）。
+パッケージは **public にしておく**。private のままだと、ジョブの起動時にイメージを引けずに落ちる。
+
+ジョブへの反映は手元から行う。gcloud を動かすアカウント（`GCLOUD_ACCOUNT`）は環境変数か `.env` で渡す。
+このリポジトリは public なので、既定値を持たせていない。
 
 ```sh
 cp .env.example .env   # GCLOUD_ACCOUNT を書く（または export する）
-make build             # Cloud Build で 2 つのイメージを作る（タグはコミット）
-make deploy            # 全ジョブ（JOBS / ANDROID_JOBS）のイメージを差し替える
+git switch main && git pull
+make deploy            # 全ジョブ（JOBS / ANDROID_JOBS）を HEAD のイメージに差し替える
+make deploy TAG=<sha>  # 別のコミットに差し替える（戻すときも同じ）
 ```
 
-コミットしていない変更があると、タグに `-dirty` が付く。`runner-android` は同じタグの
-`runner` を土台にするので、`make build` は必ず `runner` から作る。
-
-ビルドは `cloudbuild.yaml` を使う。`--service-account` を指定したビルドは
-ログの設定が必須で、`gcloud builds submit --tag` にはそのフラグが無いため。
-ソースは cloud-management が作ったバケット（`gs://a2ito-github-runner-gh-runner-source`）に置く。
-
-PR では GitHub Actions（`.github/workflows/build.yml`）が 2 つのイメージをビルドだけして確かめる。
-push はしない。
+`TAG` は完全な SHA。build.yml が走り終わる前に `make deploy` すると、まだ無いイメージを指して落ちる。
 
 ## 気をつけること
 
