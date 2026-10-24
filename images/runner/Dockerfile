@@ -13,10 +13,12 @@
 # does not change behaviour on its own. When GitHub stops accepting the runner,
 # it updates itself at start-up -- slow for a one-shot container, and the sign
 # to bump RUNNER_VERSION. The hashes are on the release pages: the runner's in
-# the release notes, gh's in gh_<version>_checksums.txt.
+# the release notes, gh's in gh_<version>_checksums.txt. AWS publishes only a
+# PGP signature (<zip>.sig) for the AWS CLI; the SHA-256 here is of the file
+# whose signature checked out.
 #
 # The defaults are for Cloud Run (x86_64). To build for arm64 locally, override
-# RUNNER_ARCH=arm64, GH_ARCH=arm64 and both hashes.
+# RUNNER_ARCH=arm64, GH_ARCH=arm64, AWS_CLI_ARCH=aarch64 and the hashes.
 ARG BASE=mcr.microsoft.com/dotnet/runtime-deps:10.0-noble
 
 FROM ${BASE} AS fetch
@@ -26,7 +28,10 @@ ARG RUNNER_SHA256=70920811a4f8ad4328818682bca5c6469c1c942fab52448868071d00638166
 ARG GH_VERSION=2.102.0
 ARG GH_ARCH=amd64
 ARG GH_SHA256=bb766f710eef8ede859c18578c72c327597cd4c8a85b06001b1f3843c6019386
-RUN apt-get update && apt-get install -y --no-install-recommends curl
+ARG AWS_CLI_VERSION=2.38.5
+ARG AWS_CLI_ARCH=x86_64
+ARG AWS_CLI_SHA256=5def7d1b7e55d892f9a381bb2cb2081a685712464be0d36d5d706af0ac48d0d3
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip
 
 WORKDIR /runner
 RUN curl -fsSL -o /tmp/runner.tar.gz \
@@ -57,6 +62,16 @@ RUN curl -fsSL -o /tmp/gh.tar.gz \
     && tar -xzf /tmp/gh.tar.gz -C /tmp \
     && install -m 755 "/tmp/gh_${GH_VERSION}_linux_${GH_ARCH}/bin/gh" /usr/local/bin/gh
 
+# AWS CLI v2. GitHub-hosted images ship it, and cloud-scope's monthly-collect
+# calls `aws` directly (aws-actions/configure-aws-credentials only sets the
+# credentials, it does not install the CLI). The bundle carries its own Python,
+# so nothing else is needed from apt.
+RUN curl -fsSL -o /tmp/awscli.zip \
+        "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_CLI_ARCH}-${AWS_CLI_VERSION}.zip" \
+    && echo "${AWS_CLI_SHA256}  /tmp/awscli.zip" | sha256sum -c - \
+    && unzip -q /tmp/awscli.zip -d /tmp \
+    && /tmp/aws/install --install-dir /usr/local/aws-cli --bin-dir /usr/local/bin
+
 FROM ${BASE}
 
 # What the jobs use beyond the runner: git for actions/checkout (without it,
@@ -71,6 +86,7 @@ RUN apt-get update \
 RUN useradd --create-home --uid 1001 runner
 
 COPY --from=fetch /usr/local/bin/gh /usr/local/bin/gh
+COPY --from=fetch /usr/local/aws-cli /usr/local/aws-cli
 COPY --from=fetch --chown=runner:runner /runner /home/runner
 
 # Put the runner's Node.js on PATH. The runner runs JavaScript actions with it
@@ -80,7 +96,8 @@ COPY --from=fetch --chown=runner:runner /runner /home/runner
 # directory", the first being hashicorp/setup-terraform's wrapper, which
 # replaces `terraform` with a Node.js script.
 RUN ln -s /home/runner/externals/node24/bin/node /usr/local/bin/node \
-    && node --version && gh --version && git --version
+    && ln -s /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws \
+    && node --version && gh --version && git --version && aws --version
 
 # The first three are what the official image sets: the runner handles SIGTERM
 # itself, logs to stdout (Cloud Logging), and actions that check ImageOS see

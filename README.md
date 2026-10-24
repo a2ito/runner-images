@@ -23,6 +23,7 @@ runner を起動する dispatcher や webhook、ON / OFF の切り替えは
 | GitHub Actions runner | 2.337.0（`RUNNER_VERSION`） | `/home/runner`。ユーザーは `runner`（uid 1001） |
 | Node.js | runner 同梱の node24 | `/usr/local/bin/node` にリンク。`externals/node20` は node24 へのリンク |
 | GitHub CLI（`gh`） | 2.102.0（`GH_VERSION`） | `/usr/local/bin/gh` |
+| AWS CLI v2 | 2.38.5（`AWS_CLI_VERSION`） | `/usr/local/aws-cli`。`/usr/local/bin/aws` にリンク |
 | git、curl、jq、unzip | Ubuntu 24.04 の apt | |
 
 ### runner-android
@@ -73,9 +74,9 @@ make deploy TAG=<sha>  # 別のコミットに差し替える（戻すときも�
 
 - **runner は 1 回きり。** JIT 設定は 1 回しか使えないため、ジョブの再試行は 0 回にしてある。
   runner ジョブを手で起動しても `JIT_CONFIG` が空なので即座に失敗する（`entrypoint.sh`）。
-- **runner イメージには `node` と `gh` を足してある。** 公式の runner イメージには
-  どちらも入っていないが、GitHub-hosted には入っていて、`setup-terraform` のラッパーや
-  `gh pr merge` を使う workflow が前提にしている。
+- **runner イメージには `node`、`gh`、`aws` を足してある。** 公式の runner イメージには
+  どれも入っていないが、GitHub-hosted には入っていて、`setup-terraform` のラッパーや
+  `gh pr merge`、`aws` を直接呼ぶ workflow（cloud-scope の monthly-collect）が前提にしている。
 - **runner イメージは公式イメージではなく、runner の tarball から作っている。** docker・buildx・
   k8s hooks・sudo など、使わない部品を持たないため（1.31GB → 473MB）。速さとメモリのためでは
   ない。起動時間はイメージの大きさに依らず（数 MB のイメージでも約 1.5 分）、イメージの大きさは
@@ -83,8 +84,9 @@ make deploy TAG=<sha>  # 別のコミットに差し替える（戻すときも�
 - **Node.js は node24 だけ。** node20 の action も `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24` で
   node24 で動かす。`externals/node20` は node24 へのリンクにしてある。runner 自身の
   `hashFiles()` などはこの変数と関係なく `externals/node20` を名前で呼ぶため、消すと壊れる。
-- **runner と gh を上げるときは、Dockerfile の版と SHA-256 を一緒に直す。** ハッシュは
-  リリースページにある（runner はリリースノート、gh は `gh_<版>_checksums.txt`）。
+- **runner、gh、AWS CLI を上げるときは、Dockerfile の版と SHA-256 を一緒に直す。** ハッシュは
+  リリースページにある（runner はリリースノート、gh は `gh_<版>_checksums.txt`）。AWS CLI は
+  PGP 署名（`<zip>.sig`）しか公開されていないため、署名を確かめた zip の SHA-256 を自分で取る。
 - **Android 用のイメージ（`images/runner-android`）は、runner イメージに Android SDK と Flutter を足したもの。**
   ジョブが落とすファイルはメモリに数えられるが、イメージの中身は数えられないため、焼き込めるものは
   焼き込む。flutter アプリが `FLUTTER_VERSION` を上げたら、Dockerfile の `FLUTTER_VERSION` と
