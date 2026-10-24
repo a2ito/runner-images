@@ -1,0 +1,16 @@
+# /etc/wsl-runner/config -- read by wsl-runner@.service (EnvironmentFile).
+# Only the first two are required; the rest show their defaults.
+
+# The GitHub App the Cloud Run dispatcher uses (app_id in the
+# github-runner-registration secret), and its private key in PEM.
+APP_ID=
+PRIVATE_KEY_FILE=/etc/wsl-runner/app.pem
+
+#ORG=a2ito
+#IMAGE=ghcr.io/a2ito/runner-images/runner-android:main
+# Comma-separated, added to self-hosted,linux,x64. `wsl` is what RUNNER /
+# RUNNER_LARGE / RUNNER_ANDROID are set to in "home PC" mode (cloud-scope).
+#LABELS=wsl
+# Runners are named <prefix>-<slot>-<timestamp>.
+#NAME_PREFIX=winmini-wsl
+#RETRY_SECONDS=60

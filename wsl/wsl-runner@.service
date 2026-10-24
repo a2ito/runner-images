@@ -1,0 +1,20 @@
+# One runner slot on the home PC (WSL). Enable one instance per runner wanted:
+#   systemctl enable --now wsl-runner@1 wsl-runner@2
+# See wsl/README.md.
+[Unit]
+Description=GitHub Actions runner in docker (slot %i)
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+EnvironmentFile=/etc/wsl-runner/config
+ExecStart=/usr/local/lib/wsl-runner/runner-loop.sh %i
+Restart=always
+RestartSec=30
+# A job may be mid-step when the service stops; give `docker stop` its default
+# 10 seconds and the cleanup a little more.
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

@@ -49,11 +49,30 @@ jobs:
           -t "$REGISTRY/runner-android:$GITHUB_SHA"
           images/runner-android
 
+      # 自宅PC（wsl/）は :main を自動で取り込むので、push の前に中身が動くことを確かめる。
+      # runner-android は runner に足したものなので、こちらだけで両方を見られる。
+      # Runner.Listener が起動できれば、.NET が要るライブラリ（ICU、OpenSSL）もベースにある。
+      - name: smoke test
+        run: >-
+          docker run --rm --entrypoint bash "$REGISTRY/runner-android:$GITHUB_SHA" -c '
+          set -eux;
+          ./bin/Runner.Listener --version;
+          node --version; gh --version; aws --version; git --version; clang --version;
+          test -x "$ANDROID_HOME/platform-tools/adb";
+          test -x _work/_tool/flutter/stable-*-x64/flutter/bin/flutter'
+
+      # SHA のタグは Cloud Run（make deploy）が、:main は自宅PC（wsl/）が使う。
+      # runner-android:main を最後にするのは、自宅PCが pull するのはそれだけで、
+      # その時点で全部が揃っているようにするため。
       - name: push
         if: github.event_name != 'pull_request'
         run: |
           echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           docker push "$REGISTRY/runner:$GITHUB_SHA"
           docker push "$REGISTRY/runner-android:$GITHUB_SHA"
+          docker tag "$REGISTRY/runner:$GITHUB_SHA" "$REGISTRY/runner:main"
+          docker tag "$REGISTRY/runner-android:$GITHUB_SHA" "$REGISTRY/runner-android:main"
+          docker push "$REGISTRY/runner:main"
+          docker push "$REGISTRY/runner-android:main"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
