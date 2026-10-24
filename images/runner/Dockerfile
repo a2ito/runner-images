@@ -78,8 +78,13 @@ FROM ${BASE}
 # checkout falls back to the REST API and leaves no .git), unzip for
 # hashicorp/setup-terraform, curl and jq for scripts. The base already has
 # ca-certificates and the libraries .NET needs (ICU, OpenSSL).
+#
+# python3, make and g++ are what node-gyp needs to build a native npm package
+# from source, which npm falls back to when no prebuilt binary matches the
+# Node.js version -- better-sqlite3 in uma-forecast-web failed `npm ci` with
+# "gyp ERR! find Python". GitHub-hosted images ship all three.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git curl jq unzip \
+    && apt-get install -y --no-install-recommends git curl jq unzip python3 make g++ \
     && rm -r /var/lib/apt/lists/*
 
 # Same user as the official image (uid 1001), so workspaces keep their owner.
