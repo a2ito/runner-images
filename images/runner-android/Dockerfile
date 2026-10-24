@@ -15,7 +15,7 @@
 # fetch their own versions each run (a few hundred MB each).
 ARG RUNNER_IMAGE
 
-FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-noble AS fetch
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble AS fetch
 # The defaults match the Flutter apps (hexspin, match3-flutter, ...): the SDK
 # levels are Flutter's defaults for FLUTTER_VERSION (flutter.compileSdkVersion
 # = 36, flutter.ndkVersion = 28.2.13676358). AGP 9.0 and 9.4 are in use, hence
