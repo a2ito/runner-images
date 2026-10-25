@@ -27,6 +27,7 @@ runner を起動する dispatcher や webhook、ON / OFF の切り替えは
 | AWS CLI v2 | 2.38.5（`AWS_CLI_VERSION`） | `/usr/local/aws-cli`。`/usr/local/bin/aws` にリンク |
 | git、curl、jq、unzip | Ubuntu 24.04 の apt | |
 | python3、make、g++ | Ubuntu 24.04 の apt | node-gyp がネイティブの npm パッケージ（better-sqlite3 など）をビルドするため |
+| Google Chrome | 156.0.8078.47（`CHROME_VERSION`） | `/usr/bin/google-chrome`。Playwright の `channel: "chrome"` で使う（uma-forecast-web の smoke test）。GitHub-hosted と同じく入れておく。Linux の arm64 版は無いので、arm64 でビルドしたときは入らない |
 
 ### runner-android
 
