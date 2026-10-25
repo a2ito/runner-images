@@ -26,7 +26,7 @@
 # multi-arch index, so the arm64 override above still works. The tag is the
 # .NET version, which the runner does not use -- it ships its own .NET; the
 # base only supplies the libraries (ICU, OpenSSL) and Ubuntu 24.04.
-ARG BASE=mcr.microsoft.com/dotnet/runtime-deps:10.0-noble@sha256:1c20bc9ebda297198be069d82b6c5d1716faeeec8b8dca53ef963f9c92d3e2e3
+ARG BASE=mcr.microsoft.com/dotnet/runtime-deps:10.0-noble@sha256:5d955c61304a113fb6012261965da20bdb558e5029284a08874f5d2f54d8c786
 
 FROM ${BASE} AS fetch
 ARG RUNNER_VERSION=2.337.0
