@@ -94,6 +94,26 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git curl jq unzip python3 make g++ \
     && rm -r /var/lib/apt/lists/*
 
+# Google Chrome, as on GitHub-hosted images. uma-forecast-web's smoke test opens
+# the built pages with Playwright's channel "chrome" -- the system Chrome, so CI
+# does not download a 150MB browser every run -- and failed with "Executable
+# doesn't exist" without it. Pinned like the rest: the version and SHA-256 are in
+# the Packages index of Google's apt repository
+# (https://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages).
+# There is no Linux arm64 build of Chrome, so a local arm64 build (see the top)
+# leaves it out.
+ARG CHROME_VERSION=156.0.8078.47-1
+ARG CHROME_SHA256=6c92cd22e90c6e3e255d782991543fa2091db8614e8536a971a7433a5c4d7ac8
+RUN if [ "$(dpkg --print-architecture)" = amd64 ]; then \
+        curl -fsSL -o /tmp/chrome.deb \
+            "https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROME_VERSION}_amd64.deb" \
+        && echo "${CHROME_SHA256}  /tmp/chrome.deb" | sha256sum -c - \
+        && apt-get update \
+        && apt-get install -y --no-install-recommends /tmp/chrome.deb \
+        && rm -r /var/lib/apt/lists/* /tmp/chrome.deb \
+        && google-chrome --version; \
+    fi
+
 # Same user as the official image (uid 1001), so workspaces keep their owner.
 RUN useradd --create-home --uid 1001 runner
 
