@@ -16,7 +16,7 @@
 ARG RUNNER_IMAGE
 
 # Same base and digest as images/runner (see there); only used to download.
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble@sha256:1c20bc9ebda297198be069d82b6c5d1716faeeec8b8dca53ef963f9c92d3e2e3 AS fetch
+FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble@sha256:5d955c61304a113fb6012261965da20bdb558e5029284a08874f5d2f54d8c786 AS fetch
 # The defaults match the Flutter apps (hexspin, match3-flutter, ...): the SDK
 # levels are Flutter's defaults for FLUTTER_VERSION (flutter.compileSdkVersion
 # = 36, flutter.ndkVersion = 28.2.13676358). AGP 9.0 and 9.4 are in use, hence
